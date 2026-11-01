@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aeto To-Do</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- type="module" lets our JavaScript files import each other. -->
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <!-- ========== Login / register screen (shown when nobody is logged in) ========== -->
+  <main class="auth-screen" id="auth-screen" hidden>
+    <div class="auth-card">
+      <h1 class="logo auth-logo"><img src="/img/aeto-mark.svg" alt="" class="logo-mark" width="46" height="24">Aeto <span>To-Do</span></h1>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <h2 class="auth-title">Log in</h2>
+        <label class="field">
+          <span>Email</span>
+          <input class="input" type="email" name="email" autocomplete="email" required maxlength="254">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input class="input" type="password" name="password" autocomplete="current-password" required maxlength="128">
+        </label>
+        <ul class="form-errors" id="login-errors" hidden></ul>
+        <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        <p class="auth-switch">No account yet? <button type="button" class="link" id="show-register">Create one</button></p>
+      </form>
+
+      <form id="register-form" class="auth-form" novalidate hidden>
+        <h2 class="auth-title">Create an account</h2>
+        <label class="field">
+          <span>Name</span>
+          <input class="input" name="name" autocomplete="name" required maxlength="50">
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input class="input" type="email" name="email" autocomplete="email" required maxlength="254">
+        </label>
+        <label class="field">
+          <span>Password <small class="muted">(at least 8 characters)</small></span>
+          <input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="128">
+        </label>
+        <ul class="form-errors" id="register-errors" hidden></ul>
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        <p class="auth-switch">Already have an account? <button type="button" class="link" id="show-login">Log in</button></p>
+      </form>
+    </div>
+  </main>
+
+  <!-- ========== The application (shown when logged in) ========== -->
+  <div id="app-screen" hidden>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="logo"><img src="/img/aeto-mark.svg" alt="" class="logo-mark" width="46" height="24">Aeto <span>To-Do</span></h1>
+        <!-- Each tab changes the address to #/name; app.js shows the matching view. -->
+        <nav class="tabs" aria-label="Views">
+          <a href="#/dashboard" class="tab" data-view="dashboard">Dashboard</a>
+          <a href="#/tasks" class="tab" data-view="tasks">Tasks</a>
+          <a href="#/calendar" class="tab" data-view="calendar">Calendar</a>
+          <a href="#/admin" class="tab" data-view="admin" id="tab-admin" hidden>Admin</a>
+        </nav>
+        <div class="topbar-actions">
+          <span class="user-chip" id="current-user"></span>
+          <button type="button" class="btn btn-secondary" id="open-categories">Categories</button>
+          <button type="button" class="btn btn-primary" id="open-new-task">+ New task</button>
+          <button type="button" class="btn btn-ghost" id="logout">Log out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- ========== View 1: Dashboard ========== -->
+      <section class="view" id="view-dashboard" aria-labelledby="dashboard-heading">
+        <h2 id="dashboard-heading" class="section-title">Dashboard</h2>
+        <div class="stats" id="stats">
+          <div class="stat"><span class="stat-label">Total</span><span class="stat-value" data-stat="total">–</span></div>
+          <div class="stat"><span class="stat-label">Pending</span><span class="stat-value" data-stat="pending">–</span></div>
+          <div class="stat"><span class="stat-label">In progress</span><span class="stat-value" data-stat="inProgress">–</span></div>
+          <div class="stat"><span class="stat-label">Completed</span><span class="stat-value" data-stat="completed">–</span></div>
+          <div class="stat stat-danger"><span class="stat-label">Overdue</span><span class="stat-value" data-stat="overdue">–</span></div>
+          <div class="stat stat-warning"><span class="stat-label">Due today</span><span class="stat-value" data-stat="dueToday">–</span></div>
+          <div class="stat stat-info"><span class="stat-label">Group tasks</span><span class="stat-value" data-stat="groupTasks">–</span></div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Completion</span>
+            <strong data-stat="completionPercentage">–</strong>
+          </div>
+          <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+        </div>
+        <div class="panels">
+          <div class="panel">
+            <h3 class="panel-title">Overdue</h3>
+            <ul class="compact-list" id="dash-overdue"></ul>
+          </div>
+          <div class="panel">
+            <h3 class="panel-title">Due in the next 7 days</h3>
+            <ul class="compact-list" id="dash-upcoming"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== View 2: Task list ========== -->
+      <section class="view" id="view-tasks" aria-labelledby="tasks-heading" hidden>
+        <div class="toolbar" aria-label="Search and filters">
+          <input type="search" id="filter-search" class="input search" placeholder="Search tasks…" aria-label="Search tasks" maxlength="200">
+          <select id="filter-status" class="input" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <select id="filter-priority" class="input" aria-label="Filter by priority">
+            <option value="">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="filter-kind" class="input" aria-label="Filter by type">
+            <option value="">Individual &amp; group</option>
+            <option value="individual">Individual only</option>
+            <option value="group">Group only</option>
+          </select>
+          <select id="filter-category" class="input" aria-label="Filter by category">
+            <option value="">All categories</option>
+          </select>
+          <select id="filter-due" class="input" aria-label="Filter by due date">
+            <option value="">Any due date</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Due today</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="none">No due date</option>
+          </select>
+          <select id="filter-sort" class="input" aria-label="Sort by">
+            <option value="createdAt">Sort: Created</option>
+            <option value="updatedAt">Sort: Updated</option>
+            <option value="dueDate">Sort: Due date</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="title">Sort: Title</option>
+          </select>
+          <button type="button" class="btn btn-secondary" id="filter-order" aria-label="Toggle sort order">↓ Desc</button>
+          <button type="button" class="btn btn-ghost" id="filter-clear">Clear</button>
+        </div>
+
+        <h2 id="tasks-heading" class="section-title">My tasks <span class="count" id="task-count"></span></h2>
+
+        <div class="state" id="state-loading" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Loading tasks…</p>
+        </div>
+        <div class="state state-error" id="state-error" hidden>
+          <p id="state-error-message">Could not load tasks.</p>
+          <button type="button" class="btn btn-secondary" id="retry">Try again</button>
+        </div>
+        <div class="state" id="state-empty" hidden>
+          <p class="state-title" id="state-empty-title">No tasks yet</p>
+          <p id="state-empty-text">Create your first task to get started.</p>
+        </div>
+
+        <ul class="task-list" id="task-list"></ul>
+      </section>
+
+      <!-- ========== View 3: Calendar ========== -->
+      <section class="view" id="view-calendar" aria-labelledby="calendar-title" hidden>
+        <div class="calendar-header">
+          <button type="button" class="btn btn-secondary" id="cal-prev" aria-label="Previous">‹</button>
+          <h2 class="calendar-title" id="calendar-title"></h2>
+          <button type="button" class="btn btn-secondary" id="cal-next" aria-label="Next">›</button>
+          <button type="button" class="btn btn-ghost" id="cal-today">Today</button>
+          <!-- The four calendar view types. aria-pressed marks the active one. -->
+          <div class="segmented" role="group" aria-label="Calendar view type">
+            <button type="button" data-calendar-mode="month" aria-pressed="true">Month</button>
+            <button type="button" data-calendar-mode="week" aria-pressed="false">Week</button>
+            <button type="button" data-calendar-mode="day" aria-pressed="false">Day</button>
+            <button type="button" data-calendar-mode="agenda" aria-pressed="false">Agenda</button>
+          </div>
+        </div>
+        <div class="calendar mode-month" id="calendar"></div>
+        <p class="muted calendar-note">Shows your tasks on their due dates. Tasks without a due date appear in the Tasks view. Click a task to edit it, + to add a task on that day, or a date to open it in the Day view.</p>
+      </section>
+
+      <!-- ========== View 4: Admin (administrators only) ========== -->
+      <section class="view" id="view-admin" aria-labelledby="admin-heading" hidden>
+        <h2 id="admin-heading" class="section-title">Users</h2>
+        <div class="table-scroll panel">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Assigned tasks</th><th>Joined</th></tr></thead>
+            <tbody id="users-list"></tbody>
+          </table>
+        </div>
+
+        <div class="admin-tasks-header">
+          <h2 class="section-title">All tasks <span class="count" id="admin-task-count"></span></h2>
+          <div class="admin-tasks-actions">
+            <select id="admin-filter-user" class="input" aria-label="Show tasks assigned to">
+              <option value="">Assigned to anyone</option>
+            </select>
+            <button type="button" class="btn btn-primary" id="admin-assign">Assign a task</button>
+          </div>
+        </div>
+        <div class="table-scroll panel">
+          <table class="data-table">
+            <thead><tr><th>Task</th><th>Type</th><th>Assigned to</th><th>Created by</th><th>Status</th><th>Due</th><th></th></tr></thead>
+            <tbody id="admin-task-list"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========== Task create / edit dialog ========== -->
+  <dialog id="task-dialog" class="dialog">
+    <form id="task-form" class="form" novalidate>
+      <h2 class="dialog-title" id="task-dialog-title">New task</h2>
+
+      <label class="field">
+        <span>Title <em>*</em></span>
+        <input class="input" name="title" required maxlength="200" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <textarea class="input" name="description" rows="3" maxlength="2000"></textarea>
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span>Status</span>
+          <select class="input" name="status">
+            <option value="pending">Pending</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Priority</span>
+          <select class="input" name="priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="field">
+          <span>Category</span>
+          <select class="input" name="categoryId" id="task-category-select">
+            <option value="">No category</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Due date</span>
+          <input class="input" type="date" name="dueDate">
+        </label>
+      </div>
+
+      <!-- Only administrators see this part: who the task is for. -->
+      <fieldset class="assign" id="assign-fields" hidden>
+        <legend>Assign to</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="kind" value="individual" checked> Individual (one person)</label>
+          <label><input type="radio" name="kind" value="group"> Group (several people)</label>
+        </div>
+        <select class="input" name="assignee" id="assignee-select" aria-label="Person"></select>
+        <div class="checklist" id="assignee-checklist" hidden></div>
+      </fieldset>
+
+      <ul class="form-errors" id="task-form-errors" hidden></ul>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="task-submit">Save task</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ========== Category manager dialog ========== -->
+  <dialog id="category-dialog" class="dialog">
+    <div class="form">
+      <h2 class="dialog-title">Categories</h2>
+      <form id="category-form" class="category-form" novalidate>
+        <input class="input" name="name" placeholder="New category name" maxlength="50" required aria-label="Category name" autocomplete="off">
+        <input class="color-input" type="color" name="color" value="#6366f1" aria-label="Category color">
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+      <ul class="category-list" id="category-list"></ul>
+      <p class="muted" id="category-empty" hidden>No categories yet.</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" data-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ========== Confirmation dialog (used before deleting) ========== -->
+  <dialog id="confirm-dialog" class="dialog dialog-small">
+    <form method="dialog" class="form">
+      <h2 class="dialog-title">Are you sure?</h2>
+      <p id="confirm-message"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-ghost">Cancel</button>
+        <button value="confirm" class="btn btn-danger">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Notifications appear here. aria-live makes screen readers announce them. -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

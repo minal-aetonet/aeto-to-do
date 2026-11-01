@@ -1,0 +1,42 @@
+{
+  "name": "aeto-to-do",
+  "version": "1.0.0",
+  "description": "Aeto To-Do: a beginner-friendly, fully documented team to-do application built with Hono, TypeScript, SQLite and Drizzle ORM.",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "tsx scripts/e2e-smoke.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "docs:build": "tsx scripts/build-docs.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@hono/zod-validator": "^0.9.1",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.16",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "^0.31.11",
+    "highlight.js": "^11.12.0",
+    "marked": "^18.1.2",
+    "puppeteer-core": "^25.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

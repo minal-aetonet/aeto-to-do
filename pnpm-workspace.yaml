@@ -1,0 +1,9 @@
+# pnpm does not run package install (build) scripts unless we decide per package.
+# - better-sqlite3 ships ready-made native binaries in its "prebuilds" folder,
+#   so compiling it from source (node-gyp) is unnecessary -> false.
+# - esbuild (used by tsx and vitest) needs its script to install its binary -> true.
+allowBuilds:
+  better-sqlite3: false
+  esbuild: true
+minimumReleaseAgeExclude:
+  - hono@4.13.16
