@@ -5373,7 +5373,8 @@ The theme block and the contrast reasoning are explained in Chapter 8 ("The Aeto
 | Browser | `pnpm test:e2e` | See the CHANGELOG entry |
 | Visual | Screenshots of the login screen, Dashboard and Tasks with demo data | Charcoal top bar and login, orange swoosh, orange buttons, readable text |
 | Nothing private is published | `git status --untracked-files=all` and `git check-ignore` before the first commit | 75 project files; `data/` (database + backup), `.env`, `node_modules` ignored |
-| Repository | `gh repo view` after pushing | See the CHANGELOG entry |
+| Repository | `gh repo view`, `git ls-remote`, `git ls-tree -r origin/main` after pushing | Private repo `minal-aetonet/aeto-to-do` created; remote `main` = local commit `78b64a0`; 76 files on GitHub, none from `data/`, `.env`, `node_modules` or `*.db` |
+| Types, tests, browser (actual numbers) | `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` | No errors; 93/93 tests; 26/26 browser steps, no console errors |
 
 ### I. What I Learned
 

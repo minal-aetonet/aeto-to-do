@@ -16,7 +16,9 @@ Every development request and the resulting changes, **newest first**. Entries a
   - The manual uses the same colours.
 - **Git:** the project got its own Git repository (branch `main`). The parent repository at `C:\` is not used, so nothing outside the project can be published.
   - Before the first commit, the file list was checked: 75 files, with `data/` (database and backup), `.env` and `node_modules` ignored.
-- **GitHub:** the GitHub CLI was installed with winget. The private repository `minal-aetonet/aeto-to-do` is created and pushed after the browser login is approved (see the next entry or the commit history for the result).
+- **GitHub:** installed the GitHub CLI with winget, and the user approved the browser login (account `minal-aetonet`). The **private** repository https://github.com/minal-aetonet/aeto-to-do was created and branch `main` pushed.
+  - Git uses the GitHub CLI login for this repository only, through local config; the global git settings are unchanged.
+  - Verified: visibility PRIVATE; the remote `main` equals the local commit `78b64a0`; 76 files on GitHub; 0 files from `data/`, `.env`, `node_modules` or `*.db`.
 
 **Files created:** `public/img/aeto-mark.svg`
 **Files modified:** `package.json`, `public/index.html`, `public/favicon.svg`, `public/css/styles.css`, `scripts/build-docs.ts`, `tests/app.test.ts`, `README.md`, `docs/DOCUMENTATION-SOURCE.md`, `docs/CHANGELOG.md` (HTML and PDF regenerated)
