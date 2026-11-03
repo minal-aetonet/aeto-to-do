@@ -141,6 +141,9 @@ const searchIndex: { id: string; text: string }[] = [];
 // ---------------------------------------------------------------------------
 const require = createRequire(import.meta.url);
 const highlightCss = readFileSync(require.resolve('highlight.js/styles/github.css'), 'utf8');
+// The Aeto logo (light version) is embedded as a "data URL" — the image bytes
+// written into the HTML as base64 text — so the manual stays one offline file.
+const logoDataUrl = `data:image/png;base64,${readFileSync(join(ROOT, 'public', 'img', 'aeto-logo-light.png')).toString('base64')}`;
 
 function renderToc(): string {
   let html = '<ol class="toc-list">';
@@ -221,6 +224,7 @@ tr:nth-child(even) td { background:#fafbfd; }
 /* Cover */
 .cover { background: linear-gradient(135deg, #2b2a35 0%, #383745 60%, #4a4757 100%); border-bottom: 6px solid #ef5a35; color:#fff; padding:4rem 3rem; border-radius:0 0 16px 16px; margin: -2rem -2.5rem 2.5rem; }
 .cover .kicker { text-transform:uppercase; letter-spacing:0.18em; font-size:0.8rem; color:#f58c5f; }
+.cover .cover-logo { display:block; width:220px; max-width:60%; height:auto; margin-bottom:2rem; }
 .cover h1.cover-title { border:none; font-size:2.6rem; margin:0.8rem 0 1rem; padding:0; color:#fff; }
 .cover .cover-subtitle { font-size:1.15rem; opacity:0.92; max-width:36rem; line-height:1.5; }
 .cover .cover-meta { margin-top:2.5rem; font-size:0.85rem; opacity:0.85; line-height:1.8; }
@@ -334,6 +338,7 @@ const html = `<!DOCTYPE html>
 <main>
 <article class="content">
   <header class="cover">
+    <img class="cover-logo" src="${logoDataUrl}" alt="Aeto">
     <div class="kicker">Aeto To-Do Project · Learning Manual</div>
     <h1 class="cover-title">${escapeHtml(TITLE)}</h1>
     <p class="cover-subtitle">${escapeHtml(SUBTITLE)}</p>

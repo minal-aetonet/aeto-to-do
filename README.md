@@ -68,7 +68,8 @@ docs/       learning manual (HTML, PDF, Markdown source) and changelog
 ## Hosting
 
 - **cPanel** ("Setup Node.js App"): use `server.cjs` as the application startup file and follow Chapter 22 of the manual.
-- Other platforms (VPS, Railway, Render, Fly.io): see Chapter 17.
+- **Render**: New → Blueprint → this repository (uses `render.yaml`, a paid instance with a persistent disk for the SQLite database) — Chapter 23.
+- Other platforms (VPS, Railway, Fly.io): see Chapter 17.
 
 ## Security
 

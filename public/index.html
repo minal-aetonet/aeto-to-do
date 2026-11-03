@@ -12,8 +12,10 @@
 <body>
   <!-- ========== Login / register screen (shown when nobody is logged in) ========== -->
   <main class="auth-screen" id="auth-screen" hidden>
+    <!-- The light version of the Aeto logo is made for dark backgrounds. -->
+    <img src="/img/aeto-logo-light.png" alt="Aeto" class="auth-brand" width="928" height="342">
     <div class="auth-card">
-      <h1 class="logo auth-logo"><img src="/img/aeto-mark.svg" alt="" class="logo-mark" width="46" height="24">Aeto <span>To-Do</span></h1>
+      <h1 class="auth-logo">Aeto <span>To-Do</span></h1>
 
       <form id="login-form" class="auth-form" novalidate>
         <h2 class="auth-title">Log in</h2>
@@ -55,7 +57,7 @@
   <div id="app-screen" hidden>
     <header class="topbar">
       <div class="topbar-inner">
-        <h1 class="logo"><img src="/img/aeto-mark.svg" alt="" class="logo-mark" width="46" height="24">Aeto <span>To-Do</span></h1>
+        <h1 class="logo"><img src="/img/aeto-logo-light.png" alt="Aeto" class="logo-img" width="928" height="342"><span class="logo-product">To-Do</span></h1>
         <!-- Each tab changes the address to #/name; app.js shows the matching view. -->
         <nav class="tabs" aria-label="Views">
           <a href="#/dashboard" class="tab" data-view="dashboard">Dashboard</a>

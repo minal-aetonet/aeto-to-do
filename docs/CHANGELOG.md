@@ -2,6 +2,34 @@
 
 Every development request and the resulting changes, **newest first**. Entries are never removed. The detailed learning explanation for each entry is in the **Development Log** part of the manual.
 
+## 2026-11-03 — Entry #10: Real Aeto logo, and how to host on Render
+
+**Original request:** "change into tthis logo and add how to rrender in (render)" (light Aeto logo attached)
+
+**Summary:**
+- **Logo:**
+  - The supplied logo is cropped from 1000 × 1000 to 928 × 342, keeping its transparent background, and saved as `public/img/aeto-logo-light.png`.
+  - It's shown in the charcoal top bar (40 px, followed by "To-Do") and above the login card. It's also embedded on the manual's cover as a data URL, so the manual stays offline.
+  - The hand-drawn swoosh `aeto-mark.svg` was removed.
+  - Fixed a CSS specificity issue that made "To-Do" too dark on charcoal.
+- **Render:**
+  - New Blueprint `render.yaml`: Node 22, `npx pnpm@12 install --prod --frozen-lockfile`, start `node server.cjs`, health check `/api/health`, `COOKIE_SECURE=true`, `DATABASE_PATH=/var/data/todo.db` on a 1 GB persistent disk, Starter plan.
+  - **New Chapter 23 "Hosting on Render":** why the free plan loses SQLite data, the Blueprint line by line, setup steps, custom domain, updates by `git push`, backups, troubleshooting, and a cPanel-vs-Render comparison.
+  - It states clearly what was and wasn't verified.
+
+**Files created:** `public/img/aeto-logo-light.png`, `render.yaml`
+**Files modified:** `public/index.html`, `public/css/styles.css`, `scripts/build-docs.ts`, `server.cjs` (comment), `README.md`, `docs/DOCUMENTATION-SOURCE.md`, `docs/CHANGELOG.md` (HTML and PDF regenerated)
+**Files deleted:** `public/img/aeto-mark.svg`
+
+**Tests performed:**
+- **Logo crop:** found the bounding box of the non-transparent pixels.
+- **Screenshots:** the login screen, the top bar and a phone-width view. On the running server, "To-Do" computes to `rgb(245, 140, 95)` and the logo is 40 px high.
+- **Simulated Render deploy:** a fresh clone, then `npx pnpm@12 install --prod --frozen-lockfile` (no dev tools, `tsx` present), then `node server.cjs` with `PORT=10000`. The app started, created its database and returned ok from `/api/health`.
+- **Automated checks:** `pnpm typecheck`: no errors. `pnpm test`: 93/93 passed. `pnpm test:e2e`: 26/26 passed, with no console errors.
+- `pnpm docs:build`: manual regenerated and verified; the cover shows the logo.
+
+**Documentation sections updated:** Preface (book layout), Chapter 8 (theme: real logo, cropping, favicon), Chapter 9 (file tree), Chapter 11 (configuration files), Chapter 17 (pointer to Chapter 23), **new Chapter 23**, Development Log Entry #10, Glossary (Blueprint, data URL, ephemeral filesystem, persistent disk).
+
 ## 2026-11-03 — Entry #9: How to host on cPanel
 
 **Original request:** "add a how to host in c panel"

@@ -24,7 +24,7 @@ This manual is written for an absolute beginner who wants to *understand* progra
 | Going further | 16–19 | Changing the app, deploying it, a learning roadmap, how this manual is built |
 | Accounts | 20 | Authentication (who are you?) and authorization (what may you do?) |
 | Teamwork | 21 | Assigning tasks, group tasks, subtasks, the Dashboard/Tasks/Calendar/Admin views |
-| Going live | 22 | Hosting the app on cPanel ("Setup Node.js App") |
+| Going live | 22–23 | Hosting the app on cPanel ("Setup Node.js App") or on Render |
 | Development Log | — | A permanent record of every change ever requested, with explanations |
 | Reference | — | Glossary and the change history |
 
@@ -1779,7 +1779,8 @@ Since Development Entry #8 the app is called **Aeto To-Do** and its colours come
 ```
 
 - The **top bar** and the **login screen** are charcoal with cream text — like the logo's version for dark backgrounds; a 3 px orange gradient line (`border-image: var(--brand-gradient) 1`) runs under the top bar.
-- `public/img/aeto-mark.svg` is a simplified orange **swoosh** from the logo, drawn as an SVG path with a gradient; the favicon uses the same swoosh on a charcoal square.
+- `public/img/aeto-logo-light.png` is the **real Aeto logo** in its light version (cream letters, orange swoosh, transparent background — made for dark backgrounds). It appears in the charcoal top bar (40 px high, followed by the product name "To-Do"), above the login card on the charcoal login screen, and on the cover of this manual. The original image was 1000 × 1000 pixels with lots of empty space; it was **cropped** to the logo plus an 8-pixel margin (928 × 342) so it can be shown small without wasting room. The `width` and `height` attributes on `<img>` let the browser reserve the right space before the image loads, so the page does not jump.
+- The favicon (browser tab icon) is a simplified orange swoosh on a charcoal square, because the full logo would be unreadable at 16 × 16 pixels.
 - **Colour contrast:** text must be readable for people with weaker eyesight. The guideline (WCAG AA) asks for a contrast ratio of at least **4.5 : 1** for normal text. White on the logo orange `#ef5a35` reaches only about 3.2 : 1, so buttons use the slightly deeper `#cf4520` (about 4.6 : 1). The bright logo orange is used for decoration (lines, the swoosh, the progress bar) where no text sits on top of it.
 - Status colours (red overdue, green done, …) keep their usual meaning, because changing them would confuse users.
 
@@ -2127,7 +2128,8 @@ The browser loads the frontend files from the **same server** as the API (same "
  │   ├── LEARN-HONO-COMPLETE.html  Generated
  │   └── LEARN-HONO-COMPLETE.pdf   Generated
  ├── data/                         SQLite database (created at runtime, not in git)
- ├── server.cjs                    Startup file for cPanel / Passenger hosting (Chapter 22)
+ ├── server.cjs                    Production startup file: cPanel (Chapter 22) and Render (Chapter 23)
+ ├── render.yaml                   Render Blueprint (Chapter 23)
  ├── package.json  pnpm-lock.yaml  pnpm-workspace.yaml
  ├── tsconfig.json                 TypeScript settings
  ├── drizzle.config.ts             drizzle-kit settings
@@ -2854,7 +2856,8 @@ Explained in Chapter 8. Key functions in the frontend:
 | `.env.example` | Documents the available environment variables. Copy it to `.env` to customise. |
 | `.gitignore` | Keeps `node_modules/`, `data/`, database files and `.env` out of git. |
 | `pnpm-workspace.yaml` | pnpm settings: which packages may run install scripts. |
-| `server.cjs` | Startup file for Passenger-based hosting such as cPanel: switches on tsx's loader (`register()`) and starts `src/index.ts` with a dynamic `import()`. Try it locally with `node server.cjs`. Chapter 22. |
+| `server.cjs` | Production startup file (cPanel/Passenger and Render): switches on tsx's loader (`register()`) and starts `src/index.ts` with a dynamic `import()`. Try it locally with `node server.cjs`. Chapters 22–23. |
+| `render.yaml` | Render Blueprint: build/start commands, health check, environment variables and the persistent disk. Chapter 23. |
 
 ## Scripts
 
@@ -3522,7 +3525,7 @@ Our app is a **single-page application**: one HTML page whose content JavaScript
 
 | Need | How it applies to this app |
 |---|---|
-| A computer that is always on | Shared hosting with cPanel's "Setup Node.js App" (**step-by-step guide in Chapter 22**), a VPS (virtual private server), or a platform such as Railway, Render or Fly.io |
+| A computer that is always on | Shared hosting with cPanel's "Setup Node.js App" (**step-by-step guide in Chapter 22**), Render (**Chapter 23**, with `render.yaml`), a VPS (virtual private server), or a platform such as Railway or Fly.io |
 | Node.js 22+ and pnpm | Install them on the server, or use a Docker image |
 | Environment variables | Set `PORT`, `DATABASE_PATH`, `LOG_REQUESTS` and **`COOKIE_SECURE=true`** in the platform's settings |
 | Persistent storage | The SQLite file must live on a disk that survives restarts and redeploys (a "volume") |
@@ -4725,6 +4728,141 @@ touch tmp/restart.txt                           # ask Passenger to restart the a
 2. Create a test subdomain and follow steps 1–5; then add a task and confirm it survives **Restart**.
 3. Change a text in `public/index.html`, push it to GitHub, and deploy the update with the commands in "Updating the app later".
 
+# Chapter 23 — Hosting on Render
+
+**Render** (render.com) is a cloud platform that builds and runs your app straight from GitHub: every time you push to `main`, it downloads the code, installs it, and restarts the app — with HTTPS included. Compared with cPanel (Chapter 22) there is no server to manage, no Terminal, and no upload step.
+
+> [!NOTE]
+> **What was verified and what wasn't.** Render's build and start commands were tested on a fresh copy of the repository on this computer: `npx pnpm@12 install --prod --frozen-lockfile` installed only the runtime packages (no Vitest, but `tsx` present), and `node server.cjs` with `PORT=10000` started the app, created the database and answered `/api/health`. The steps inside Render's website could not be tried from here; Render occasionally renames buttons and changes plans and prices, so check render.com if a screen differs.
+
+## The one thing to understand first: the disk
+
+On Render, the files of a running service live on an **ephemeral filesystem**: everything written there is **deleted on every deploy and every restart**. Our database is a file (`todo.db`), so on a plain Render service *all tasks and accounts would disappear* each time you push.
+
+The solution is a **persistent disk** — a storage area that survives deploys — mounted at a folder such as `/var/data`, with `DATABASE_PATH=/var/data/todo.db`.
+
+| | Free instance | Paid instance (e.g. Starter) + disk |
+|---|---|---|
+| Persistent disk | ✘ not available | ✔ |
+| Your data survives deploys/restarts | ✘ **lost every time** | ✔ |
+| Sleeps when idle | ✔ after ~15 minutes; first visit then takes up to a minute | ✘ always on |
+| Good for | a quick demo you don't mind resetting | real use |
+
+> [!WARNING]
+> With a disk, Render runs **one** instance of the service and briefly stops the old version during each deploy (a few seconds of downtime). That is the price of keeping SQLite on a disk; it is fine for this app. For multiple instances you would move to a database server such as Render PostgreSQL (Chapter 17).
+
+## How it fits together
+
+```diagram
+ git push (main) ──► GitHub ──webhook──► Render
+                                           │ 1. clone the repository
+                                           │ 2. buildCommand:  npx pnpm@12 install --prod --frozen-lockfile
+                                           │ 3. startCommand:  node server.cjs   (PORT given by Render)
+                                           │ 4. healthCheckPath /api/health must answer 200
+                                           ▼
+ Browser ──HTTPS──► aeto-to-do.onrender.com ──► your app ──► /var/data/todo.db (persistent disk)
+```
+
+## The Blueprint: render.yaml
+
+A **Blueprint** is a file in your repository that describes the service, so you don't have to type every setting in Render's website. Ours, `render.yaml`:
+
+```yaml
+services:
+  - type: web
+    name: aeto-to-do
+    runtime: node
+    plan: starter
+    buildCommand: npx pnpm@12 install --prod --frozen-lockfile
+    startCommand: node server.cjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_PATH
+        value: /var/data/todo.db
+      - key: LOG_REQUESTS
+        value: "false"
+    disk:
+      name: aeto-data
+      mountPath: /var/data
+      sizeGB: 1
+```
+
+| Line | Meaning |
+|---|---|
+| `type: web` | A service that answers HTTP requests and gets a public HTTPS address |
+| `runtime: node` | Use Render's Node.js environment |
+| `plan: starter` | A paid instance type — required for the disk |
+| `buildCommand` | Install exactly the locked runtime packages with pnpm (same as on cPanel); `pnpm-workspace.yaml` lets `better-sqlite3` use its ready-made Linux binary |
+| `startCommand: node server.cjs` | Start the app through the same starter file used on cPanel (Chapter 22) |
+| `healthCheckPath` | Render calls `/api/health`; a new version only replaces the old one once it answers `200` |
+| `NODE_VERSION: "22"` | Which Node.js version Render installs |
+| `COOKIE_SECURE: "true"` | Render serves HTTPS, so the login cookie must be `Secure` (Chapter 20) |
+| `DATABASE_PATH` | Puts the database **on the disk** |
+| `disk` | A 1 GB persistent disk mounted at `/var/data` |
+
+We do **not** set `PORT`: Render sets it automatically (usually `10000`), and `src/config.ts` already reads it.
+
+## Step by step
+
+1. **Push the code.** `render.yaml` is in the repository on GitHub (`git push` if you changed anything).
+2. **Create a Render account** at render.com and choose **Sign in with GitHub**.
+3. **Give Render access to the repository.** Render asks to install its GitHub App; allow access to `minal-aetonet/aeto-to-do` (private repositories work once access is granted).
+4. **Create the Blueprint.** In the dashboard: **New → Blueprint** → select the repository → Render reads `render.yaml` and shows the service, its disk and its environment variables → **Apply**. Add a payment method when asked (the disk needs a paid instance).
+5. **Watch the first deploy.** Open the service → **Events / Logs**. You should see pnpm installing packages, then `To-Do app running at http://localhost:10000` and `Database file: /var/data/todo.db`. The status turns **Live** when `/api/health` answers.
+6. **Open your app** at the address shown at the top of the service page (e.g. `https://aeto-to-do.onrender.com`) and **register your own account immediately** — the first account becomes the admin.
+7. **(Optional) Your own domain.** Service → **Settings → Custom Domains** → add `todo.example.com` and create the DNS record Render shows at your domain provider. Render issues the HTTPS certificate automatically.
+
+**Without a Blueprint**, choose **New → Web Service**, pick the repository, and type the same values: Runtime *Node*, Build Command and Start Command from the table, Instance Type *Starter*, Health Check Path `/api/health`, the four environment variables, and under **Advanced → Add Disk**: mount path `/var/data`, 1 GB.
+
+## Updating the app
+
+Just push to GitHub:
+
+```bash
+git add .
+git commit -m "Describe the change"
+git push
+```
+
+Render notices the push (**Auto-Deploy**), builds, starts the new version and runs any new database migrations on start. **Back up first** when a change includes a migration (see below). You can also click **Manual Deploy → Deploy latest commit**.
+
+## Backups
+
+- Render takes automatic **daily snapshots** of persistent disks; you can restore one from the service's **Disks** page.
+- For your own copy, open the service's **Shell** tab and run `sqlite3 /var/data/todo.db ".backup /var/data/backup.db"` if `sqlite3` is available, or copy the file with `cp /var/data/todo.db /var/data/backup-$(date +%F).db` while traffic is quiet — then download it with Render's SSH/`scp` access (see Render's "Disks" documentation).
+
+## Troubleshooting on Render
+
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| All tasks and accounts disappear after a deploy | No persistent disk, or `DATABASE_PATH` not on it | Add the disk at `/var/data` and set `DATABASE_PATH=/var/data/todo.db` |
+| Build fails with `ERR_PNPM_OUTDATED_LOCKFILE` | `package.json` changed but `pnpm-lock.yaml` was not updated and committed | Run `pnpm install` locally, commit `pnpm-lock.yaml`, push |
+| Deploy stuck / "Timed out" on the health check | The app crashed on start | Read the **Logs**; look for `Invalid environment variables` or a stack trace |
+| `Could not locate the bindings file` (better-sqlite3) | `node_modules` was committed by mistake, or a different Node version | Never commit `node_modules`; keep `NODE_VERSION=22` |
+| Logged out immediately after logging in | Visiting over `http://` with `COOKIE_SECURE=true` | Always use the `https://` address |
+| First visit takes very long | Free instance woke up from sleep | Use a paid instance, or accept it for demos |
+| "Disk not supported on free instance" | Plan is Free | Choose Starter (or higher) |
+
+## cPanel or Render?
+
+| | cPanel (Chapter 22) | Render (this chapter) |
+|---|---|---|
+| Setup | Several manual steps (Terminal, deploy key) | Mostly automatic from `render.yaml` |
+| Updates | `git pull` + install + restart on the server | `git push` |
+| HTTPS | AutoSSL in cPanel | Automatic |
+| Keeping data | Database file in your home directory | Paid instance with a persistent disk |
+| Cost | Often included in existing hosting | Paid instance + disk (check current prices) |
+
+## Try it yourself
+
+1. Deploy to Render with the Blueprint and register your admin account.
+2. Push a small visible change (for example a text in `public/index.html`) and watch Render redeploy it automatically.
+3. Look at the **Metrics** tab while you click around the app: you will see the requests and the memory the app uses.
+
 # Development Log
 
 This part of the manual is a permanent learning record. Every development request gets its own entry, in the order the requests were made. Entries are never deleted, so you can see how the application grew and why each decision was made.
@@ -5652,6 +5790,82 @@ How shared hosting runs Node.js apps (Passenger + a startup file), why the start
 - Set `COOKIE_SECURE=true` and use HTTPS; register your own admin account first.
 - Keep `DATABASE_PATH` outside `public_html`, the domain's document root and the app folder.
 
+## Development Entry: #10 — Use the Real Aeto Logo, and How to Host on Render
+
+**Date:** 2026-11-03
+
+### A. What I Asked For
+
+*"change into this logo and add how to render in (render)"* — with the light (cream and orange) Aeto logo attached: show this logo in the app, and explain how to host the app on Render.
+
+### B. What We Are Building
+
+- The real logo replaces the hand-drawn swoosh: in the top bar, above the login card, and on the manual's cover.
+- `render.yaml`, a Render Blueprint, and **Chapter 23 — Hosting on Render** (the persistent-disk rule, the Blueprint line by line, step-by-step setup, updates, backups, troubleshooting, and a cPanel-vs-Render comparison).
+
+### C. Why We Need It
+
+The app should carry the actual brand, not an approximation. Render is the easiest way to run the app from GitHub with automatic HTTPS and automatic deploys — but SQLite needs a persistent disk there, which is easy to get wrong.
+
+### D. Technical Concepts
+
+Transparent PNGs and cropping; `<img>` width/height and layout shift; **data URLs** (embedding an image in HTML as base64 text); CSS specificity (why `.logo span` beat `.logo-product`); Platform-as-a-Service; **ephemeral filesystems** and **persistent disks**; **Blueprints** (infrastructure described in a file); health checks; auto-deploy on push.
+
+### E. Files Changed
+
+| File | Change |
+|---|---|
+| `public/img/aeto-logo-light.png` | **New** — the logo, cropped from 1000 × 1000 to 928 × 342 |
+| `public/img/aeto-mark.svg` | **Deleted** — replaced by the real logo |
+| `public/index.html` | Logo image in the top bar and on the login screen |
+| `public/css/styles.css` | `.logo-img`, `.logo .logo-product`, `.auth-brand`, login screen layout |
+| `scripts/build-docs.ts` | Logo embedded as a data URL on the manual's cover |
+| `render.yaml` | **New** — Render Blueprint |
+| `server.cjs` | Comment: also the Render start file |
+| `README.md`, `docs/*` | Hosting section, Chapters 8, 9, 11, 17, new Chapter 23, this entry |
+
+### F. Code Explanation
+
+- The crop was done with a browser canvas: find the bounding box of all non-transparent pixels, add 8 px, and copy that rectangle into a new PNG.
+- `scripts/build-docs.ts` reads the PNG and writes `data:image/png;base64,…` into the cover's `<img src>`, so the HTML manual still works offline as a single file.
+- In the top bar, `.logo span { color: var(--primary) }` (one class + one element) was more **specific** than `.logo-product` (one class), so "To-Do" first appeared in the darker button orange; the rule is now `.logo .logo-product` (two classes), which wins.
+- `render.yaml` is explained line by line in Chapter 23.
+
+### G. Complete Code Flow
+
+```diagram
+ git push ─► GitHub ─► Render: clone → npx pnpm@12 install --prod --frozen-lockfile
+                              → node server.cjs (PORT=10000) → runMigrations on /var/data/todo.db
+                              → GET /api/health = 200 → Live at https://aeto-to-do.onrender.com
+ Browser ─► index.html ─► <img src="/img/aeto-logo-light.png"> on the charcoal top bar
+```
+
+### H. Testing
+
+| What | How | Result |
+|---|---|---|
+| Logo crop | Canvas bounding box of non-transparent pixels | Logo at (44, 337)–(955, 662); saved 928 × 342 PNG, transparent background |
+| Logo in the app | Screenshots: login screen, top bar, phone width; computed style of "To-Do" on the running server | Logo crisp on charcoal; "To-Do" now `rgb(245, 140, 95)` (readable on charcoal); logo 40 px high |
+| Render build + start (simulated) | Fresh `git clone`, `npx pnpm@12 install --prod --frozen-lockfile`, then `node server.cjs` with `PORT=10000` | Installed in 8.5 s; no Vitest (dev tool) but `tsx` present; app started, database created, `/api/health` ok; process stopped and port freed |
+| Render website steps | — | **Not tested** (no Render account access); Chapter 23 says so |
+| Existing tests and manual | `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`, `pnpm docs:build` | See the CHANGELOG entry |
+
+### I. What I Learned
+
+How to prepare a logo for the web (crop, transparency, explicit size), how to embed an image in a standalone HTML file, why CSS specificity decides which rule wins, and why a cloud platform's disk is temporary unless you add a persistent one.
+
+### J. What I Can Try Next
+
+1. Make a dark-on-light version of the header (white top bar) using the other logo file you have.
+2. Deploy to Render and add your own domain.
+3. Add a second Render service on the free plan as a "preview" that resets its data — and explain in the app that it is a demo.
+
+### K. Important Notes
+
+- Render's **free** instance has no persistent disk: data would be lost on every deploy. Use a paid instance with the disk from `render.yaml`.
+- Render runs one instance when a disk is attached; deploys cause a few seconds of downtime.
+- Register your own admin account immediately after the first deploy.
+
 # Glossary
 
 | Term | Meaning |
@@ -5663,6 +5877,7 @@ How shared hosting runs Node.js apps (Passenger + a startup file), why the start
 | async / await | Keywords for writing code that waits for Promises step by step |
 | Authentication | Checking *who* someone is (login); failure → `401` |
 | Authorization | Checking *what* someone may do (own data, roles); failure → `403` or `404` |
+| Blueprint (Render) | A `render.yaml` file in the repository that describes services, so Render can create them automatically |
 | Brute-force attack | Trying many passwords until one works; slowed down by the login throttle |
 | Backend | The part of an application that runs on the server |
 | Body (HTTP) | The data part of a request or response, e.g. JSON |
@@ -5681,6 +5896,7 @@ How shared hosting runs Node.js apps (Passenger + a startup file), why the start
 | CSP | Content Security Policy — a header limiting where a page may load scripts and styles from |
 | CSRF | Cross-Site Request Forgery — another website making your browser send requests to our app with your cookie |
 | CSS | The language that styles web pages |
+| Data URL | An image (or other file) written directly into HTML/CSS as text, e.g. `data:image/png;base64,…` |
 | Debounce | Waiting until a burst of events stops before reacting (used for search) |
 | Dependency | A package your project needs |
 | Deploy key | An SSH key that gives one server read access to one GitHub repository |
@@ -5689,6 +5905,7 @@ How shared hosting runs Node.js apps (Passenger + a startup file), why the start
 | DOM | Document Object Model — the browser's in-memory tree of the page |
 | Drizzle ORM | The TypeScript library we use to query the database |
 | Endpoint | One method + URL combination of an API, e.g. `POST /api/tasks` |
+| Ephemeral filesystem | Storage that is wiped when a cloud service restarts or redeploys |
 | Environment variable | A named setting given to a program by the operating system, e.g. `PORT` |
 | Event listener | A function that runs when an event (click, submit…) happens |
 | fetch | The browser function for sending HTTP requests |
@@ -5724,6 +5941,7 @@ How shared hosting runs Node.js apps (Passenger + a startup file), why the start
 | Node.js | A program that runs JavaScript outside the browser |
 | npm | The public package registry, and Node's default package manager |
 | NULL | "No value" in a database |
+| Persistent disk | Cloud storage that survives restarts and deploys (needed for SQLite on Render) |
 | Passenger (Phusion Passenger) | The program cPanel uses to start Node.js apps and hand them web requests |
 | Parameterised query | SQL where values are sent separately from the SQL text — prevents SQL injection |
 | pnpm | The fast, disk-efficient package manager this project uses |

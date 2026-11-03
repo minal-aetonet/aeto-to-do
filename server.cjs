@@ -1,5 +1,6 @@
-// Startup file for hosting panels that run Node.js apps with Phusion Passenger,
-// such as cPanel's "Setup Node.js App". Set "Application startup file" to: server.cjs
+// Production startup file.
+//  - cPanel "Setup Node.js App" (Phusion Passenger): set "Application startup file" to server.cjs
+//  - Render: the start command in render.yaml is "node server.cjs"
 //
 // Passenger loads this file with require(), so it must be plain CommonJS
 // JavaScript (.cjs). It switches on tsx's loader, which lets Node.js run our

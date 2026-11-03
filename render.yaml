@@ -1,0 +1,27 @@
+# Render Blueprint: describes how Render (render.com) builds and runs the app.
+# In the Render dashboard: New → Blueprint → choose this repository.
+# Chapter 23 of the manual explains every line.
+services:
+  - type: web
+    name: aeto-to-do
+    runtime: node
+    # A persistent disk (below) needs a paid instance type; the free type
+    # has no disk and would lose the SQLite database on every restart.
+    plan: starter
+    buildCommand: npx pnpm@12 install --prod --frozen-lockfile
+    startCommand: node server.cjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_PATH
+        value: /var/data/todo.db
+      - key: LOG_REQUESTS
+        value: "false"
+    # Files outside this folder are wiped on every deploy and restart.
+    disk:
+      name: aeto-data
+      mountPath: /var/data
+      sizeGB: 1

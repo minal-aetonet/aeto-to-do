@@ -272,9 +272,10 @@ textarea.input { resize: vertical; }
 
 /* ===== Aeto brand: charcoal top bar and login screen (like the logo on dark) ===== */
 .topbar { background: var(--brand-ink); border-bottom: 3px solid transparent; border-image: var(--brand-gradient) 1; }
-.logo { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--brand-cream); font-weight: 700; }
-.logo span { color: var(--brand-orange-light); }
-.logo-mark { width: 46px; height: 24px; display: block; flex-shrink: 0; }
+/* The real Aeto logo (light version, transparent PNG) + the product name */
+.logo { display: inline-flex; align-items: center; gap: 0.6rem; color: var(--brand-cream); font-weight: 700; }
+.logo-img { height: 40px; width: auto; display: block; flex-shrink: 0; }
+.logo .logo-product { color: var(--brand-orange-light); font-size: 1.05rem; padding-left: 0.6rem; border-left: 1px solid rgba(247, 243, 239, 0.25); letter-spacing: 0.01em; }
 .topbar .tab { color: rgba(247, 243, 239, 0.72); }
 .topbar .tab:hover { background: rgba(247, 243, 239, 0.08); color: var(--brand-cream); }
 .topbar .tab.active { background: rgba(239, 90, 53, 0.18); color: #ffb28f; box-shadow: inset 0 -2px 0 var(--brand-orange); }
@@ -289,9 +290,10 @@ textarea.input { resize: vertical; }
 
 .auth-screen { background: radial-gradient(circle at 20% 15%, #4a4858 0%, var(--brand-ink) 45%, var(--brand-ink-deep) 100%); }
 .auth-card { border: none; border-top: 4px solid var(--brand-orange); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
-.auth-logo { display: flex; justify-content: center; color: var(--brand-ink); }
+.auth-screen { flex-direction: column; gap: 1.75rem; }
+.auth-brand { width: min(280px, 70vw); height: auto; display: block; }
+.auth-logo { text-align: center; color: var(--brand-ink); font-size: 1.4rem; margin: 0 0 1.25rem; }
 .auth-logo span { color: var(--primary); }
-.auth-logo .logo-mark { width: 56px; height: 30px; }
 
 /* ===== Responsive layout for small screens ===== */
 @media (max-width: 900px) {
