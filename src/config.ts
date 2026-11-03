@@ -26,10 +26,11 @@ const envSchema = z.object({
 
 // Validate once at startup. If something is wrong we stop immediately with a
 // clear message instead of failing in a confusing way later.
+// (We throw instead of calling process.exit(), so the message is always
+// written to the log before the program ends — also on hosting platforms.)
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  console.error('Invalid environment variables:', z.prettifyError(parsed.error));
-  process.exit(1);
+  throw new Error(`Invalid environment variables:\n${z.prettifyError(parsed.error)}`);
 }
 
 export const config = {

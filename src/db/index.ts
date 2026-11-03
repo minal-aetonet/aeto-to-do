@@ -21,7 +21,16 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL('./migrations', import.meta.url)
 export function createDatabase(filePath: string): AppDatabase {
   if (filePath !== ':memory:') {
     // Make sure the folder (e.g. "./data") exists before SQLite creates the file.
-    mkdirSync(dirname(filePath), { recursive: true });
+    try {
+      mkdirSync(dirname(filePath), { recursive: true });
+    } catch (error) {
+      throw new Error(
+        `Cannot create the database folder "${dirname(filePath)}" (DATABASE_PATH=${filePath}). ` +
+          'Check that the path exists and is writable. On Render, this folder must be a ' +
+          'persistent disk (e.g. mounted at /var/data); without a disk, remove DATABASE_PATH.',
+        { cause: error },
+      );
+    }
   }
 
   const sqlite = new Database(filePath);

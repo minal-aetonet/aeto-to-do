@@ -12,5 +12,7 @@ register();
 
 import('./src/index.ts').catch((error) => {
   console.error('The app could not start:', error);
-  process.exit(1);
+  // exitCode (not process.exit()) lets Node.js finish writing the message to
+  // the log first; the process then ends by itself with status 1.
+  process.exitCode = 1;
 });
