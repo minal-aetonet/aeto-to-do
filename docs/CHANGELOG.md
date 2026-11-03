@@ -2,6 +2,33 @@
 
 Every development request and the resulting changes, **newest first**. Entries are never removed. The detailed learning explanation for each entry is in the **Development Log** part of the manual.
 
+## 2026-11-03 — Entry #9: How to host on cPanel
+
+**Original request:** "add a how to host in c panel"
+
+**Summary:**
+- **New `server.cjs`:** a startup file for cPanel's Setup Node.js App (Phusion Passenger). It switches on tsx's TypeScript loader and starts `src/index.ts` with a dynamic `import()`.
+- **New Chapter 22, "Hosting on cPanel":**
+  - Requirements and an architecture diagram.
+  - Step 1: domain, AutoSSL and Force HTTPS.
+  - Step 2: the code, from GitHub with a read-only deploy key or as a ZIP upload, kept outside public folders.
+  - Step 3: Setup Node.js App fields and environment variables (`NODE_ENV`, `COOKIE_SECURE=true`, `DATABASE_PATH` outside the app, `LOG_REQUESTS`).
+  - Step 4: installing with `npx pnpm@12 install --prod --frozen-lockfile` instead of the "Run NPM Install" button.
+  - Step 5: start and test, then register the admin account first.
+  - Also covers updating, backups, a troubleshooting table and the limits of shared hosting.
+- **Testing note:** the chapter states clearly that the cPanel steps could not be tried on a real cPanel server.
+
+**Files created:** `server.cjs`
+**Files modified:** `README.md`, `docs/DOCUMENTATION-SOURCE.md`, `docs/CHANGELOG.md` (HTML and PDF regenerated)
+**Files deleted:** none
+
+**Tests performed:**
+- `node server.cjs` with production-like settings: a fresh database was migrated, `/api/health` returned ok, registration returned `201` with an `HttpOnly; Secure; SameSite=Lax` cookie, and the page was served. The test process was stopped and its port freed.
+- `pnpm typecheck`: no errors. `pnpm test`: 93/93 passed. `pnpm test:e2e`: 26/26 passed, with no console errors.
+- `pnpm docs:build`: manual regenerated and verified.
+
+**Documentation sections updated:** Preface (book layout), Chapter 9 (file tree), Chapter 11 (configuration files), Chapter 17 (pointer to Chapter 22), **new Chapter 22**, Development Log Entry #9, Glossary (cPanel, deploy key, dynamic import, Passenger).
+
 ## 2026-11-01 — Entry #8: Rename to "Aeto To-Do", logo theme, publish on GitHub
 
 **Original requests:** "name the projext to aeto to do and create a new repo in minal-aetonet and push it in my git hub" · "change the theme to match the logo too" (Aeto logo attached)

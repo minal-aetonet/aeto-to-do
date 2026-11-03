@@ -24,6 +24,7 @@ This manual is written for an absolute beginner who wants to *understand* progra
 | Going further | 16–19 | Changing the app, deploying it, a learning roadmap, how this manual is built |
 | Accounts | 20 | Authentication (who are you?) and authorization (what may you do?) |
 | Teamwork | 21 | Assigning tasks, group tasks, subtasks, the Dashboard/Tasks/Calendar/Admin views |
+| Going live | 22 | Hosting the app on cPanel ("Setup Node.js App") |
 | Development Log | — | A permanent record of every change ever requested, with explanations |
 | Reference | — | Glossary and the change history |
 
@@ -2126,6 +2127,7 @@ The browser loads the frontend files from the **same server** as the API (same "
  │   ├── LEARN-HONO-COMPLETE.html  Generated
  │   └── LEARN-HONO-COMPLETE.pdf   Generated
  ├── data/                         SQLite database (created at runtime, not in git)
+ ├── server.cjs                    Startup file for cPanel / Passenger hosting (Chapter 22)
  ├── package.json  pnpm-lock.yaml  pnpm-workspace.yaml
  ├── tsconfig.json                 TypeScript settings
  ├── drizzle.config.ts             drizzle-kit settings
@@ -2852,6 +2854,7 @@ Explained in Chapter 8. Key functions in the frontend:
 | `.env.example` | Documents the available environment variables. Copy it to `.env` to customise. |
 | `.gitignore` | Keeps `node_modules/`, `data/`, database files and `.env` out of git. |
 | `pnpm-workspace.yaml` | pnpm settings: which packages may run install scripts. |
+| `server.cjs` | Startup file for Passenger-based hosting such as cPanel: switches on tsx's loader (`register()`) and starts `src/index.ts` with a dynamic `import()`. Try it locally with `node server.cjs`. Chapter 22. |
 
 ## Scripts
 
@@ -3519,7 +3522,7 @@ Our app is a **single-page application**: one HTML page whose content JavaScript
 
 | Need | How it applies to this app |
 |---|---|
-| A computer that is always on | A VPS (virtual private server), or a platform such as Railway, Render or Fly.io |
+| A computer that is always on | Shared hosting with cPanel's "Setup Node.js App" (**step-by-step guide in Chapter 22**), a VPS (virtual private server), or a platform such as Railway, Render or Fly.io |
 | Node.js 22+ and pnpm | Install them on the server, or use a Docker image |
 | Environment variables | Set `PORT`, `DATABASE_PATH`, `LOG_REQUESTS` and **`COOKIE_SECURE=true`** in the platform's settings |
 | Persistent storage | The SQLite file must live on a disk that survives restarts and redeploys (a "volume") |
@@ -4537,6 +4540,191 @@ Moving from `tasks.user_id` to `task_assignees` needed a data migration and unco
 4. Open `data/todo.db` in a SQLite viewer and look at `task_assignees`. Find the rows of your group task.
 5. Exercise: add a "Remove me from this group task" button for members (a `DELETE /api/tasks/:id/assignees/me` route). Who should be allowed? What if the last member leaves?
 
+# Chapter 22 — Hosting on cPanel
+
+**cPanel** is the control panel most shared web-hosting companies give you (Namecheap, Hostinger, A2, Bluehost, many local hosts…). Many cPanel servers include **"Setup Node.js App"** (CloudLinux Node.js Selector), which runs Node.js apps through **Phusion Passenger**, a program that starts your app, passes it the web requests for your domain, and restarts it when needed. This chapter puts Aeto To-Do online that way, step by step.
+
+> [!NOTE]
+> **What was verified and what wasn't.** The startup file `server.cjs` was tested locally with production settings (fresh database migrated, `Secure` cookie, page served). The cPanel steps below follow how cPanel's Node.js Selector works, but every hosting company configures it slightly differently and they could not be tried on your specific server. If a screen looks different, the ideas stay the same — ask your host's support for the equivalent option.
+
+## What you need
+
+| Requirement | Why | Where to check |
+|---|---|---|
+| A cPanel account with **Setup Node.js App** | Runs Node.js apps | cPanel → *Software* section |
+| **Node.js 22** (or 20.12+) offered by the selector | The app uses `process.loadEnvFile` and modern JavaScript | The *Node.js version* list in Setup Node.js App |
+| **Terminal** (or SSH access) | To install packages with pnpm | cPanel → *Advanced* → *Terminal* |
+| A **domain or subdomain**, e.g. `todo.example.com` | The address of your app | cPanel → *Domains* |
+| **SSL** (AutoSSL / Let's Encrypt) | HTTPS — required for secure login cookies | cPanel → *SSL/TLS Status* |
+| Linux **x86-64** server (almost all cPanel servers) | `better-sqlite3` ships a ready-made binary for it | ask the host if unsure |
+
+If your plan has **no** Setup Node.js App, you need a different kind of hosting (a VPS, Railway, Render, Fly.io…) — see Chapter 17.
+
+## How it fits together
+
+```diagram
+ Browser ──HTTPS──► todo.example.com  (cPanel / Apache, AutoSSL certificate)
+                         │  .htaccess written by "Setup Node.js App"
+                         ▼
+                  Phusion Passenger ──starts──► node server.cjs
+                         │                         │ require('tsx/esm/api') → register()
+                         │                         ▼
+                         │                     import('./src/index.ts')
+                         │                         │ runMigrations → createApp → serve()
+                         ▼                         ▼
+                  your app (Hono)  ◄────────  /home/USER/aeto-data/todo.db
+```
+
+### Why `server.cjs`?
+
+Passenger starts an app by loading **one JavaScript file** with `require()`. Our app is TypeScript started by `tsx`, and `package.json` says `"type": "module"`. So the project contains a tiny CommonJS (`.cjs`) starter:
+
+```js
+const { register } = require('tsx/esm/api');
+
+register();
+
+import('./src/index.ts').catch((error) => {
+  console.error('The app could not start:', error);
+  process.exit(1);
+});
+```
+
+1. `require('tsx/esm/api')` loads tsx's programming interface; `register()` switches on the loader that lets Node.js understand `.ts` files.
+2. `import('./src/index.ts')` — a **dynamic import**, allowed even in CommonJS — starts the real app exactly as `pnpm start` does.
+3. If startup fails, the error is printed (it appears in the log, see below) and the process exits.
+
+You do not need to change `src/index.ts`: Passenger takes over the `listen(...)` call made by `serve()` and connects it to your domain, so the `PORT` setting is not needed on cPanel.
+
+## Step 1 — Create the subdomain and HTTPS
+
+1. cPanel → **Domains** → **Create A New Domain** → e.g. `todo.example.com`. Keep the suggested document root (e.g. `/home/USER/todo.example.com`).
+2. cPanel → **SSL/TLS Status** → select the domain → **Run AutoSSL** (wait until it shows a valid certificate).
+3. cPanel → **Domains** → switch **Force HTTPS Redirect** on for the domain.
+
+## Step 2 — Put the code on the server
+
+The app folder must **not** be inside `public_html` or the domain's document root — otherwise visitors could download your source code. Use a folder in your home directory, e.g. `/home/USER/aeto-to-do`.
+
+**Option A — Git (recommended).** Your repository is private, so the server needs permission to read it:
+
+1. cPanel → **Terminal**, then create a key for the server: `ssh-keygen -t ed25519 -C "cpanel-deploy" -f ~/.ssh/aeto_deploy -N ""` and show it with `cat ~/.ssh/aeto_deploy.pub`.
+2. On GitHub: repository → **Settings → Deploy keys → Add deploy key**, paste the key, leave "Allow write access" **off** (the server only needs to read).
+3. Back in the Terminal:
+   ```bash
+   cat >> ~/.ssh/config <<'EOF'
+   Host github-aeto
+     HostName github.com
+     User git
+     IdentityFile ~/.ssh/aeto_deploy
+   EOF
+   chmod 600 ~/.ssh/config
+   cd ~ && git clone git@github-aeto:minal-aetonet/aeto-to-do.git
+   ```
+   (cPanel's own **Git™ Version Control** page can also clone from this address once the key works.)
+
+**Option B — Upload a ZIP.** On GitHub: **Code → Download ZIP**. In cPanel → **File Manager**, upload it to your home directory, **Extract**, and rename the folder to `aeto-to-do`. Do **not** upload `node_modules` or `data/` from your computer.
+
+## Step 3 — Create the Node.js application
+
+cPanel → **Setup Node.js App** → **Create Application**:
+
+| Field | Value |
+|---|---|
+| Node.js version | the newest offered, ideally **22.x** |
+| Application mode | **Production** |
+| Application root | `aeto-to-do` (the folder from step 2, relative to your home directory) |
+| Application URL | `todo.example.com` (leave the path empty) |
+| Application startup file | `server.cjs` |
+| Passenger log file | `/home/USER/logs/aeto-to-do.log` (optional but very useful) |
+
+Then add these **environment variables** (button *Add Variable*):
+
+| Name | Value | Why |
+|---|---|---|
+| `NODE_ENV` | `production` | Tells libraries this is production |
+| `COOKIE_SECURE` | `true` | The login cookie is only sent over HTTPS (Chapter 20) |
+| `DATABASE_PATH` | `/home/USER/aeto-data/todo.db` | Keeps the database **outside** the app folder and outside any public folder, so updates never overwrite it and nobody can download it |
+| `LOG_REQUESTS` | `false` (or `true` while testing) | One log line per request can make the log big |
+
+Click **Create**. The selector creates a separate Node.js environment for the app and shows a command at the top of the page like:
+
+```bash
+source /home/USER/nodevenv/aeto-to-do/22/bin/activate && cd /home/USER/aeto-to-do
+```
+
+Copy it — you need it in the next step.
+
+## Step 4 — Install the packages with pnpm
+
+Open cPanel → **Terminal**, paste the command from step 3 (it switches to the app's Node.js version and folder), then:
+
+```bash
+npx pnpm@12 install --prod --frozen-lockfile
+```
+
+- `npx pnpm@12` downloads and runs pnpm without installing it globally (shared hosting usually forbids global installs).
+- `--prod` skips development tools (Vitest, Puppeteer…); `tsx`, needed by `server.cjs`, is a normal dependency and *is* installed.
+- `--frozen-lockfile` installs exactly the versions in `pnpm-lock.yaml` — the ones the tests passed with.
+- `pnpm-workspace.yaml` is respected: `better-sqlite3` uses its ready-made Linux binary instead of compiling.
+
+> [!WARNING]
+> Avoid the **"Run NPM Install"** button for this project. It uses npm, which ignores `pnpm-lock.yaml` and `pnpm-workspace.yaml`; depending on the server's npm version it may try to compile `better-sqlite3` from C++ source, which fails on many shared hosts.
+
+> [!NOTE]
+> CloudLinux keeps the real packages inside the Node.js environment and creates `node_modules` in your app folder as a **link** to it. If the panel complains that a `node_modules` folder already exists, delete the app folder's `node_modules` (never the `nodevenv` folder) and run the install again from the Terminal.
+
+## Step 5 — Start and test
+
+1. In **Setup Node.js App**, click **Restart** for the application.
+2. Open `https://todo.example.com/api/health` → you should see `{"data":{"status":"ok"}}`.
+3. Open `https://todo.example.com` and **register your own account straight away** — the first account becomes the admin (Chapter 20).
+
+On the first start, `runMigrations` creates `/home/USER/aeto-data/todo.db` with all tables. The folder is created automatically.
+
+## Updating the app later
+
+```bash
+source /home/USER/nodevenv/aeto-to-do/22/bin/activate && cd /home/USER/aeto-to-do
+git pull                                        # get the new code (or upload a new ZIP)
+npx pnpm@12 install --prod --frozen-lockfile    # in case packages changed
+touch tmp/restart.txt                           # ask Passenger to restart the app
+```
+
+(`touch tmp/restart.txt` creates or updates that file; Passenger restarts the app on the next request. The **Restart** button does the same. Create the folder once with `mkdir -p tmp` if it is missing.) New database migrations run automatically on restart — **make a backup first**.
+
+## Backups
+
+- Download `/home/USER/aeto-data/todo.db` with **File Manager**, or include it in cPanel → **Backup** (your home directory backup contains it).
+- For a consistent copy while the app runs, use the Terminal: `sqlite3 ~/aeto-data/todo.db ".backup ~/aeto-data/backup-$(date +%F).db"` (if `sqlite3` is installed), or briefly stop the app in Setup Node.js App and copy the file.
+- Keep backups outside public folders, and delete old ones you no longer need.
+
+## Troubleshooting on cPanel
+
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| "We're sorry, but something went wrong" / *Incomplete response* | The app crashed while starting | Read the Passenger log file (step 3) or `stderr.log` in the app folder; the message from `server.cjs` says why |
+| `Cannot find module 'tsx/esm/api'` | Packages not installed (or installed for another Node version) | Run step 4 again with the environment activated |
+| `Could not locate the bindings file` / `invalid ELF header` (better-sqlite3) | `node_modules` was uploaded from Windows, or installed with another Node version | Delete `node_modules`, run step 4 on the server |
+| `Invalid environment variables` in the log | A value such as `COOKIE_SECURE=yes` | Use exactly `true` or `false` |
+| Login works but you are logged out at once | `COOKIE_SECURE=true` while visiting over `http://` | Use `https://` and turn on Force HTTPS Redirect |
+| `SqliteError: unable to open database file` | The folder in `DATABASE_PATH` is not writable or the path is wrong | Use a folder in your home directory, e.g. `/home/USER/aeto-data/todo.db` |
+| Old version still shown after an update | Passenger still runs the old process | Click **Restart** or `touch tmp/restart.txt` |
+| First page load is slow after a quiet period | Shared hosts stop idle apps; Passenger starts them again on the next visit | Normal on shared hosting |
+| Visitors can see your source code | The app folder is inside `public_html` or the document root | Move it to `/home/USER/aeto-to-do` and update *Application root* |
+
+## Limits of shared hosting
+
+- **One server, one database file.** SQLite is a great fit for a single cPanel account. Passenger may start more than one copy (process) of the app under load; they share the same database file safely (SQLite locks it while writing), but each copy has its own in-memory login throttle (Chapter 20), so the "5 attempts" limit is per process.
+- **CPU and memory limits.** Shared plans limit resources; password hashing (scrypt) is deliberately heavy, so many simultaneous logins can be slow.
+- **Grow later.** For more users, move to a VPS or a platform such as Railway, Render or Fly.io, and eventually to PostgreSQL (Chapter 17).
+
+## Try it yourself
+
+1. Find **Setup Node.js App** in your hosting's cPanel and note which Node.js versions it offers.
+2. Create a test subdomain and follow steps 1–5; then add a task and confirm it survives **Restart**.
+3. Change a text in `public/index.html`, push it to GitHub, and deploy the update with the commands in "Updating the app later".
+
 # Development Log
 
 This part of the manual is a permanent learning record. Every development request gets its own entry, in the order the requests were made. Entries are never deleted, so you can see how the application grew and why each decision was made.
@@ -5392,6 +5580,78 @@ How Git and GitHub keep a history and an online copy of a project; why `.gitigno
 - Your database and its backup are **not** on GitHub (they are in `data/`, which is ignored). Back them up separately.
 - The swoosh is a simplified re-drawing of the logo, not the original artwork.
 
+## Development Entry: #9 — How to Host on cPanel
+
+**Date:** 2026-11-03
+
+### A. What I Asked For
+
+*"add a how to host in cPanel"* — instructions for putting the app online on cPanel shared hosting.
+
+### B. What We Are Building
+
+- `server.cjs`, a startup file that cPanel's **Setup Node.js App** (Phusion Passenger) can run.
+- **Chapter 22 — Hosting on cPanel**: requirements, how Passenger runs the app, five steps (domain + HTTPS, code via Git deploy key or ZIP, creating the Node.js app with environment variables, installing with pnpm, starting and testing), updating, backups, troubleshooting and the limits of shared hosting.
+
+### C. Why We Need It
+
+cPanel is the most common kind of affordable hosting. Without a startup file Passenger cannot start a TypeScript app, and a few cPanel details (the "Run NPM Install" button, where to keep the database, `COOKIE_SECURE`) easily go wrong.
+
+### D. Technical Concepts
+
+Phusion Passenger and application startup files; CommonJS vs ES modules and why the starter is a `.cjs` file; **dynamic `import()`**; tsx's `register()` API; SSH **deploy keys**; environment variables in a hosting panel; keeping data outside the app and public folders; restarting with `tmp/restart.txt`.
+
+### E. Files Changed
+
+| File | Change |
+|---|---|
+| `server.cjs` | **New** — Passenger/cPanel startup file |
+| `README.md` | New "Hosting" section |
+| `docs/DOCUMENTATION-SOURCE.md` | New Chapter 22; Preface table, Chapter 9 tree, Chapter 11 configuration table and Chapter 17 point to it; glossary; this entry |
+| `docs/CHANGELOG.md` | Entry #9 |
+
+No application code changed.
+
+### F. Code Explanation
+
+`server.cjs` is explained line by line in Chapter 22 ("Why `server.cjs`?"): `require('tsx/esm/api')` + `register()` teach Node.js to run TypeScript, and `import('./src/index.ts')` starts the same code as `pnpm start`. Passenger takes over the server's `listen()` call, so `src/index.ts` did not need to change.
+
+### G. Complete Code Flow
+
+```diagram
+ Visitor → https://todo.example.com → Apache (cPanel, SSL) → Passenger
+        ↓  first request: Passenger runs  node server.cjs
+ register()  → TypeScript support
+ import('./src/index.ts') → config (.env / panel variables) → createDatabase(DATABASE_PATH)
+        → runMigrations → createApp → serve()  ← Passenger connects it to the domain
+        ↓
+ request handled by Hono exactly as on your computer
+```
+
+### H. Testing
+
+| What | How | Expected | Actual | Result |
+|---|---|---|---|---|
+| Startup file | `node server.cjs` with `PORT=3077`, a new `DATABASE_PATH` and `COOKIE_SECURE=true` | starts, migrates a fresh database, serves the page | "To-Do app running…"; `/api/health` → ok; register → `201` with `HttpOnly; Secure; SameSite=Lax` cookie; page title "Aeto To-Do"; process stopped and port freed afterwards | Passed |
+| Existing tests | `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` | unchanged | no errors; 93/93; 26/26, no console errors | Passed |
+| Real cPanel server | — | — | **Not tested** (no access to your hosting account); Chapter 22 says so | — |
+
+### I. What I Learned
+
+How shared hosting runs Node.js apps (Passenger + a startup file), why the starter must be CommonJS, how a deploy key gives a server read-only access to a private repository, and why the database belongs outside the app and public folders.
+
+### J. What I Can Try Next
+
+1. Deploy to a test subdomain following Chapter 22, then practise an update with `git pull` and `touch tmp/restart.txt`.
+2. Write a small shell script `deploy.sh` that runs the three update commands.
+3. Set up a cron job in cPanel that makes a daily database backup.
+
+### K. Important Notes
+
+- Use the Terminal + pnpm, not the "Run NPM Install" button.
+- Set `COOKIE_SECURE=true` and use HTTPS; register your own admin account first.
+- Keep `DATABASE_PATH` outside `public_html`, the domain's document root and the app folder.
+
 # Glossary
 
 | Term | Meaning |
@@ -5409,6 +5669,7 @@ How Git and GitHub keep a history and an online copy of a project; why `.gitigno
 | Build id | A fingerprint printed on both manual formats to show they come from the same source |
 | Callback | A function passed to another function to be called later |
 | Clone | Download a Git repository (with its history) for the first time |
+| cPanel | A web-hosting control panel used by many shared-hosting companies |
 | Column | One named piece of information in a database table |
 | Commit | A saved snapshot of the project in Git, with a message explaining the change |
 | Contrast ratio | How different text and background colours are in brightness; at least 4.5 : 1 for normal text (WCAG AA) |
@@ -5422,6 +5683,8 @@ How Git and GitHub keep a history and an online copy of a project; why `.gitigno
 | CSS | The language that styles web pages |
 | Debounce | Waiting until a burst of events stops before reacting (used for search) |
 | Dependency | A package your project needs |
+| Deploy key | An SSH key that gives one server read access to one GitHub repository |
+| Dynamic import | `import('./file')` used as a function at run time; works even in CommonJS files |
 | Dependency injection | Giving code the things it needs (like the database) instead of letting it fetch them itself |
 | DOM | Document Object Model — the browser's in-memory tree of the page |
 | Drizzle ORM | The TypeScript library we use to query the database |
@@ -5461,6 +5724,7 @@ How Git and GitHub keep a history and an online copy of a project; why `.gitigno
 | Node.js | A program that runs JavaScript outside the browser |
 | npm | The public package registry, and Node's default package manager |
 | NULL | "No value" in a database |
+| Passenger (Phusion Passenger) | The program cPanel uses to start Node.js apps and hand them web requests |
 | Parameterised query | SQL where values are sent separately from the SQL text — prevents SQL injection |
 | pnpm | The fast, disk-efficient package manager this project uses |
 | Port | A numbered "door" on a computer where a server listens (ours: 3000) |

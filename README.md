@@ -65,6 +65,11 @@ scripts/    migrate, seed, browser smoke test, documentation generator
 docs/       learning manual (HTML, PDF, Markdown source) and changelog
 ```
 
+## Hosting
+
+- **cPanel** ("Setup Node.js App"): use `server.cjs` as the application startup file and follow Chapter 22 of the manual.
+- Other platforms (VPS, Railway, Render, Fly.io): see Chapter 17.
+
 ## Security
 
 Accounts with scrypt-hashed passwords, `HttpOnly` session cookies, per-user data, an admin role, CSRF protection and login throttling — see Chapter 20 of the manual. Before deploying, use HTTPS with `COOKIE_SECURE=true` and register your own admin account first (Chapter 17).
